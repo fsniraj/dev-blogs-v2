@@ -1,9 +1,11 @@
 import formidable from "formidable";
+import { ObjectId } from "mongoose";
 import { NextApiRequest, NextApiResponse } from "next";
 import { unstable_getServerSession } from "next-auth";
+import { IComment } from "../models/Comment";
 import Post, { PostModelSchema } from "../models/Post";
 import { authOptions } from "../pages/api/auth/[...nextauth]";
-import { PostDetail, UserProfile } from "../utils/types";
+import { CommentResponse, PostDetail, UserProfile } from "../utils/types";
 import dbConnect from "./dbConnect";
 
 interface FormidablePromise<T> {
@@ -58,4 +60,30 @@ export const isAdmin = async (req: NextApiRequest, res: NextApiResponse) => {
   const session = await unstable_getServerSession(req, res, authOptions);
   const user = session?.user as UserProfile;
   return user && user.role === "admin";
+};
+
+export const isAuth = async (req: NextApiRequest, res: NextApiResponse) => {
+  const session = await unstable_getServerSession(req, res, authOptions);
+  const user = session?.user;
+  if (user) return user as UserProfile;
+};
+
+const getLikedByOwner = (likes: any[], user: UserProfile) =>
+  likes.includes(user.id);
+
+export const formatComment = (
+  comment: IComment,
+  user?: UserProfile
+): CommentResponse => {
+  const owner = comment.owner as any;
+  return {
+    id: comment._id.toString(),
+    content: comment.content,
+    likes: comment.likes.length,
+    chiefComment: comment?.chiefComment || false,
+    createdAt: comment.createdAt?.toString(),
+    owner: { id: owner._id, name: owner.name, avatar: owner.avatar },
+    repliedTo: comment?.repliedTo?.toString(),
+    likedByOwner: user ? getLikedByOwner(comment.likes, user) : false,
+  };
 };
