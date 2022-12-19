@@ -23,7 +23,7 @@ import Link from "next/link";
 
 type Props = InferGetStaticPropsType<typeof getStaticProps>;
 
-const host = "https://v2.fsniraj.dev/";
+const host = "https://v2.fsniraj.dev";
 
 const SinglePost: NextPage<Props> = ({ post }) => {
   const [likes, setLikes] = useState({ likedByOwner: false, count: 0 });
