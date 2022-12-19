@@ -123,7 +123,7 @@ const SinglePost: NextPage<Props> = ({ post }) => {
           <div className="flex flex-col space-y-4">
             {relatedPosts.map((p) => {
               return (
-                <Link href={p.slug}>
+                <Link key={p.slug} href={p.slug}>
                   <a className="font-semibold text-primary-dark dark:text-primary hover:underline">
                     {p.title}
                   </a>
