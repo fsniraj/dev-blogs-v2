@@ -6,14 +6,24 @@ import { GitHubAuthButton } from "../button";
 import CommentCard from "./CommentCard";
 import CommentForm from "./CommentForm";
 import ConfirmModal from "./ConfirmModal";
+import PageNavigator from "./PageNavigator";
 
 interface Props {
-  belongsTo: string;
+  belongsTo?: string;
+  fetchAll?: boolean;
 }
 
-const Comments: FC<Props> = ({ belongsTo }): JSX.Element => {
+const limit = 5;
+let currentPageNo = 0;
+
+const Comments: FC<Props> = ({ belongsTo, fetchAll }): JSX.Element => {
   const [comments, setComments] = useState<CommentResponse[]>();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [reachedToEnd, setReachedToEnd] = useState(false);
+  const [busyCommentLike, setBusyCommentLike] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [selectedComment, setSelectedComment] =
+    useState<CommentResponse | null>(null);
   const [commentToDelete, setCommentToDelete] =
     useState<CommentResponse | null>(null);
 
@@ -110,12 +120,19 @@ const Comments: FC<Props> = ({ belongsTo }): JSX.Element => {
   };
 
   const handleNewCommentSubmit = async (content: string) => {
-    const newComment = await axios
-      .post("/api/comment", { content, belongsTo })
-      .then(({ data }) => data.comment)
-      .catch((err) => console.log(err));
-    if (newComment && comments) setComments([...comments, newComment]);
-    else setComments([newComment]);
+    setSubmitting(true);
+    try {
+      const newComment = await axios
+        .post("/api/comment", { content, belongsTo })
+        .then(({ data }) => data.comment)
+        .catch((err) => console.log(err));
+      if (newComment && comments) setComments([...comments, newComment]);
+      else setComments([newComment]);
+    } catch (error) {
+      console.log(error);
+    }
+
+    setSubmitting(false);
   };
 
   const handleReplySubmit = (replyComment: {
@@ -161,13 +178,55 @@ const Comments: FC<Props> = ({ belongsTo }): JSX.Element => {
   };
 
   const handleOnLikeClick = (comment: CommentResponse) => {
+    setBusyCommentLike(true);
+    setSelectedComment(comment);
     axios
       .post("/api/comment/update-like", { commentId: comment.id })
-      .then(({ data }) => updateLikedComments(data.comment))
-      .catch((err) => console.log(err));
+      .then(({ data }) => {
+        updateLikedComments(data.comment);
+        setBusyCommentLike(false);
+        setSelectedComment(null);
+      })
+      .catch((err) => {
+        console.log(err);
+        setBusyCommentLike(false);
+        setSelectedComment(null);
+      });
+  };
+
+  // fetching all comments
+  const fetchAllComments = async (pageNo = currentPageNo) => {
+    try {
+      const { data } = await axios(
+        `/api/comment/all?pageNo=${pageNo}&limit=${limit}`
+      );
+
+      if (!data.comments.length) {
+        currentPageNo -= 1;
+        return setReachedToEnd(true);
+      }
+
+      setComments(data.comments);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleOnNextClick = () => {
+    if (reachedToEnd) return;
+    currentPageNo += 1;
+    fetchAllComments(currentPageNo);
+  };
+
+  const handleOnPrevClick = () => {
+    if (currentPageNo <= 0) return;
+    if (reachedToEnd) setReachedToEnd(false);
+    currentPageNo -= 1;
+    fetchAllComments(currentPageNo);
   };
 
   useEffect(() => {
+    if (!belongsTo) return;
     axios(`/api/comment?belongsTo=${belongsTo}`)
       .then(({ data }) => {
         setComments(data.comments);
@@ -175,10 +234,21 @@ const Comments: FC<Props> = ({ belongsTo }): JSX.Element => {
       .catch((err) => console.log(err));
   }, [belongsTo]);
 
+  useEffect(() => {
+    if (!belongsTo && fetchAll) {
+      fetchAllComments();
+    }
+  }, [belongsTo, fetchAll]);
+
   return (
     <div className="py-20 space-y-4">
       {userProfile ? (
-        <CommentForm onSubmit={handleNewCommentSubmit} title="Add comment" />
+        <CommentForm
+          visible={!fetchAll}
+          onSubmit={handleNewCommentSubmit}
+          title="Add comment"
+          busy={submitting}
+        />
       ) : (
         <div className="flex flex-col items-end space-y-2">
           <h3 className="text-secondary-dark text-xl font-semibold">
@@ -203,6 +273,7 @@ const Comments: FC<Props> = ({ belongsTo }): JSX.Element => {
               }
               onDeleteClick={() => handleOnDeleteClick(comment)}
               onLikeClick={() => handleOnLikeClick(comment)}
+              busy={selectedComment?.id === comment.id && busyCommentLike}
             />
 
             {replies?.length ? (
@@ -222,6 +293,7 @@ const Comments: FC<Props> = ({ belongsTo }): JSX.Element => {
                       }
                       onDeleteClick={() => handleOnDeleteClick(reply)}
                       onLikeClick={() => handleOnLikeClick(reply)}
+                      busy={selectedComment?.id === reply.id && busyCommentLike}
                     />
                   );
                 })}
@@ -230,6 +302,14 @@ const Comments: FC<Props> = ({ belongsTo }): JSX.Element => {
           </div>
         );
       })}
+      {fetchAll ? (
+        <div className="py-10 flex justify-end">
+          <PageNavigator
+            onNextClick={handleOnNextClick}
+            onPrevClick={handleOnPrevClick}
+          />
+        </div>
+      ) : null}
 
       <ConfirmModal
         visible={showConfirmModal}

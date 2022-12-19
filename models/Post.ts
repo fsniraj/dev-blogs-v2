@@ -11,6 +11,7 @@ export interface PostModelSchema {
   thumbnail?: { url: string; public_id: string };
   author: ObjectId;
   createdAt: Date;
+  likes?: ObjectId[];
 }
 
 const PostSchema = new Schema<PostModelSchema>(
@@ -48,6 +49,12 @@ const PostSchema = new Schema<PostModelSchema>(
       type: Schema.Types.ObjectId,
       ref: "User",
     },
+    likes: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   {
     timestamps: true,

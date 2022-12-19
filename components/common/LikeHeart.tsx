@@ -1,4 +1,5 @@
 import { FC } from "react";
+import { BiLoader } from "react-icons/bi";
 import { BsHeart, BsHeartFill } from "react-icons/bs";
 
 interface Props {
@@ -11,16 +12,19 @@ interface Props {
 const LikeHeart: FC<Props> = ({
   liked = false,
   label,
+  busy,
   onClick,
 }): JSX.Element => {
+  const likeIcon = liked ? <BsHeartFill color="#4790FD" /> : <BsHeart />;
   return (
     <button
       type="button"
       className="text-primary-dark dark:text-primary flex items-center space-x-2 outline-none"
       onClick={onClick}
     >
-      {liked ? <BsHeartFill color="#4790FD" /> : <BsHeart />}
-      <span>{label}</span>
+      {busy ? <BiLoader className="animate-spin" /> : likeIcon}
+
+      <span className="hover:underline">{label}</span>
     </button>
   );
 };
